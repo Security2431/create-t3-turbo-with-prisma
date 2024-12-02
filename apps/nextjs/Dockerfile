@@ -68,7 +68,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=builder --chown=nodejs:nextjs /app .
+COPY --from=builder --chown=nextjs:nodejs /app .
 WORKDIR /app/apps/${APP_DIRNAME}
 
 ARG PORT=3000
