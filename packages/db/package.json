@@ -7,32 +7,29 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
-    },
-    "./client": {
-      "types": "./dist/client.d.ts",
-      "default": "./src/client.ts"
-    },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "default": "./src/schema.ts"
     }
   },
   "license": "MIT",
+  "prisma": {
+    "schema": "./src/schema.prisma"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "dev": "tsc",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
-    "push": "pnpm with-env drizzle-kit push",
-    "studio": "pnpm with-env drizzle-kit studio",
+    "db:generate": "pnpm run generate",
+    "generate": "pnpm with-env prisma generate",
+    "push": "pnpm with-env prisma db push --skip-generate",
+    "studio": "pnpm with-env prisma studio --port 5556",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "with-env": "dotenv -e ../../.env --"
   },
   "dependencies": {
-    "@vercel/postgres": "^0.10.0",
-    "drizzle-orm": "^0.38.4",
-    "drizzle-zod": "^0.6.1",
+    "@prisma/client": "^6.3.1",
+    "@prisma/extension-accelerate": "^1.2.2",
+    "@t3-oss/env-core": "^0.12.0",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -43,6 +40,7 @@
     "drizzle-kit": "^0.30.2",
     "eslint": "catalog:",
     "prettier": "catalog:",
+    "prisma": "^6.3.1",
     "typescript": "catalog:"
   },
   "prettier": "@acme/prettier-config"

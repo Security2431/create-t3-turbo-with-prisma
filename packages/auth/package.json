@@ -20,7 +20,7 @@
   "dependencies": {
     "@acme/db": "workspace:*",
     "@auth/core": "0.37.2",
-    "@auth/drizzle-adapter": "1.7.4",
+    "@auth/prisma-adapter": "^2.7.4",
     "@t3-oss/env-nextjs": "^0.12.0",
     "next": "^14.2.23",
     "next-auth": "5.0.0-beta.25",
