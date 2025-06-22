@@ -8,22 +8,10 @@
  */
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod/v4";
 
-import type { Session } from "@acme/auth";
-import { auth, validateToken } from "@acme/auth";
+import type { Auth } from "@acme/auth";
 import { db } from "@acme/db";
-
-/**
- * Isomorphic Session getter for API requests
- * - Expo requests will have a session token in the Authorization header
- * - Next.js requests will have a session token in cookies
- */
-const isomorphicGetSession = async (headers: Headers) => {
-  const authToken = headers.get("Authorization") ?? null;
-  if (authToken) return validateToken(authToken);
-  return auth();
-};
 
 /**
  * 1. CONTEXT
@@ -37,23 +25,21 @@ const isomorphicGetSession = async (headers: Headers) => {
  *
  * @see https://trpc.io/docs/server/context
  */
+
 export const createTRPCContext = async (opts: {
   headers: Headers;
-  session: Session | null;
+  auth: Auth;
 }) => {
-  const authToken = opts.headers.get("Authorization") ?? null;
-  const session = await isomorphicGetSession(opts.headers);
-
-  const source = opts.headers.get("x-trpc-source") ?? "unknown";
-  console.log(">>> tRPC Request from", source, "by", session?.user);
-
+  const authApi = opts.auth.api;
+  const session = await authApi.getSession({
+    headers: opts.headers,
+  });
   return {
+    authApi,
     session,
     db,
-    token: authToken,
   };
 };
-
 /**
  * 2. INITIALIZATION
  *
@@ -66,16 +52,13 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
     ...shape,
     data: {
       ...shape.data,
-      zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+      zodError:
+        error.cause instanceof ZodError
+          ? z.flattenError(error.cause as ZodError<Record<string, unknown>>)
+          : null,
     },
   }),
 });
-
-/**
- * Create a server-side caller
- * @see https://trpc.io/docs/server/server-side-calls
- */
-export const createCallerFactory = t.createCallerFactory;
 
 /**
  * 3. ROUTER & PROCEDURE (THE IMPORTANT BIT)
