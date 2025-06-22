@@ -1,15 +1,47 @@
-import NextAuth from "next-auth";
+import type { BetterAuthOptions } from "better-auth";
+import { expo } from "@better-auth/expo";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { oAuthProxy } from "better-auth/plugins";
 
-import { authConfig } from "./config";
+import { db } from "@acme/db";
 
-export type { Session } from "next-auth";
+export function initAuth(options: {
+  baseUrl: string;
+  productionUrl: string;
+  secret: string | undefined;
 
-const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+  discordClientId: string;
+  discordClientSecret: string;
+}) {
+  const config = {
+    database: prismaAdapter(db, {
+      provider: "mongodb",
+    }),
+    baseURL: options.baseUrl,
+    secret: options.secret,
+    plugins: [
+      oAuthProxy({
+        /**
+         * Auto-inference blocked by https://github.com/better-auth/better-auth/pull/2891
+         */
+        currentURL: options.baseUrl,
+        productionURL: options.productionUrl,
+      }),
+      expo(),
+    ],
+    socialProviders: {
+      discord: {
+        clientId: options.discordClientId,
+        clientSecret: options.discordClientSecret,
+        redirectURI: `${options.productionUrl}/api/auth/callback/discord`,
+      },
+    },
+    trustedOrigins: ["expo://"],
+  } satisfies BetterAuthOptions;
 
-export { handlers, auth, signIn, signOut };
+  return betterAuth(config);
+}
 
-export {
-  invalidateSessionToken,
-  validateToken,
-  isSecureContext,
-} from "./config";
+export type Auth = ReturnType<typeof initAuth>;
+export type Session = Auth["$Infer"]["Session"];

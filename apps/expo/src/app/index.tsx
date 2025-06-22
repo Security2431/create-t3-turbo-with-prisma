@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { Button, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, Stack } from "expo-router";
-import { FlashList } from "@shopify/flash-list";
+import { LegendList } from "@legendapp/list";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { RouterOutputs } from "~/utils/api";
-import { api } from "~/utils/api";
-import { useSignIn, useSignOut, useUser } from "~/utils/auth";
+import { trpc } from "~/utils/api";
+import { authClient } from "~/utils/auth";
 
 function PostCard(props: {
   post: RouterOutputs["post"]["all"][number];
@@ -38,18 +39,20 @@ function PostCard(props: {
 }
 
 function CreatePost() {
-  const utils = api.useUtils();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
-  const { mutate, error } = api.post.create.useMutation({
-    async onSuccess() {
-      setTitle("");
-      setContent("");
-      await utils.post.all.invalidate();
-    },
-  });
+  const { mutate, error } = useMutation(
+    trpc.post.create.mutationOptions({
+      async onSuccess() {
+        setTitle("");
+        setContent("");
+        await queryClient.invalidateQueries(trpc.post.all.queryFilter());
+      },
+    }),
+  );
 
   return (
     <View className="mt-4 flex gap-2">
@@ -96,18 +99,23 @@ function CreatePost() {
 }
 
 function MobileAuth() {
-  const user = useUser();
-  const signIn = useSignIn();
-  const signOut = useSignOut();
+  const { data: session } = authClient.useSession();
 
   return (
     <>
-      <Text className="pb-2 text-center text-xl font-semibold text-white">
-        {user?.name ?? "Not logged in"}
+      <Text className="pb-2 text-center text-xl font-semibold text-zinc-900">
+        {session?.user.name ? `Hello, ${session.user.name}` : "Not logged in"}
       </Text>
       <Button
-        onPress={() => (user ? signOut() : signIn())}
-        title={user ? "Sign Out" : "Sign In With Discord"}
+        onPress={() =>
+          session
+            ? authClient.signOut()
+            : authClient.signIn.social({
+                provider: "discord",
+                callbackURL: "/",
+              })
+        }
+        title={session ? "Sign Out" : "Sign In With Discord"}
         color={"#5B65E9"}
       />
     </>
@@ -115,13 +123,16 @@ function MobileAuth() {
 }
 
 export default function Index() {
-  const utils = api.useUtils();
+  const queryClient = useQueryClient();
 
-  const postQuery = api.post.all.useQuery();
+  const postQuery = useQuery(trpc.post.all.queryOptions());
 
-  const deletePostMutation = api.post.delete.useMutation({
-    onSettled: () => utils.post.all.invalidate(),
-  });
+  const deletePostMutation = useMutation(
+    trpc.post.delete.mutationOptions({
+      onSettled: () =>
+        queryClient.invalidateQueries(trpc.post.all.queryFilter()),
+    }),
+  );
 
   return (
     <SafeAreaView className="bg-background">
@@ -140,9 +151,10 @@ export default function Index() {
           </Text>
         </View>
 
-        <FlashList
-          data={postQuery.data}
+        <LegendList
+          data={postQuery.data ?? []}
           estimatedItemSize={20}
+          keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => <View className="h-2" />}
           renderItem={(p) => (
             <PostCard
